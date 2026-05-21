@@ -10,7 +10,7 @@ import * as Plotly from 'plotly.js-dist-min'
 /**
  * @summary A web component for interactive graphs using Plotly.js.
  * @documentation https://terra-ui.netlify.app/components/plot
- * @status experimental
+ * @status stable
  * @since 1.0
  *
  * @csspart base - The component's base wrapper.
@@ -103,7 +103,9 @@ export default class TerraPlot extends TerraElement {
             this.base,
             coloredData as Plotly.Data[],
             {
-                title: this.plotTitle, // support for adding a title directly
+                title: {
+                    text: this.plotTitle, // support for adding a title directly
+                },
                 ...this.layout, // or complete access to the Plotly layout
             },
             { responsive: true, ...this.config }

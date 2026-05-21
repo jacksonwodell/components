@@ -1,71 +1,279 @@
-import '../../../dist/terra-ui-components.js'
-import { expect, fixture, html } from '@open-wc/testing'
+import { elementUpdated, expect, fixture, html } from '@open-wc/testing'
+import './data-subsetter.js'
 
-describe('<terra-data-subsetter>', () => {
-    it('should render a component', async () => {
-        const el = await fixture(html`
-            <terra-data-subsetter></terra-data-subsetter>
-        `)
+const getAccordionContent = (el: any) => {
+	const accordions = Array.from(
+		el.shadowRoot?.querySelectorAll('terra-accordion') ?? [],
+	) as Element[]
 
-        expect(el).to.exist
-    })
+	const dimensionsAccordion = accordions.find((acc) =>
+		acc.textContent?.includes('Select Dimensions:'),
+	)
 
-    it('should show mode selection when collection is selected', async () => {
-        const el = await fixture(html`
-            <terra-data-subsetter
-                collection-entry-id="test-collection"
-                show-collection-search="false"
-            >
-            </terra-data-subsetter>
-        `)
+	return dimensionsAccordion?.querySelector('.accordion-content')
+}
 
-        // Wait for the component to initialize
-        await el.updateComplete
+describe('<terra-data-subsetter> dimension intersection support', () => {
+	it('renders common dimensions for all available variables when no variable selected', async () => {
+		const el: any = await fixture(
+			html`<terra-data-subsetter></terra-data-subsetter>`,
+		)
 
-        // Check if mode selection is present
-        const modeSelection = el.shadowRoot?.querySelector('.mode-selection')
-        expect(modeSelection).to.exist
-    })
+		el.collectionWithServices = {
+			conceptId: 'C1',
+			shortName: 'S1',
+			variableSubset: true,
+			bboxSubset: false,
+			temporalSubset: false,
+			concatenate: false,
+			reproject: false,
+			capabilitiesVersion: '1',
+			outputFormats: [],
+			services: [],
+			variables: [],
+			collection: {
+				ShortName: 'S1',
+				Version: '1',
+				granuleCount: 0,
+				EntryTitle: 'Test',
+				SpatialExtent: {
+					GranuleSpatialRepresentation: 'N/A',
+					HorizontalSpatialDomain: {
+						Geometry: {
+							CoordinateSystem: 'EPSG:4326',
+							BoundingRectangles: {
+								WestBoundingCoordinate: 0,
+								NorthBoundingCoordinate: 0,
+								EastBoundingCoordinate: 0,
+								SouthBoundingCoordinate: 0,
+							},
+						},
+					},
+				},
+				TemporalExtents: [],
+			},
+		}
 
-    it('should show data-access component when original mode is selected', async () => {
-        const el = await fixture(html`
-            <terra-data-subsetter
-                collection-entry-id="test-collection"
-                show-collection-search="false"
-            >
-            </terra-data-subsetter>
-        `)
+		el.dataAccessMode = 'subset'
 
-        // Wait for the component to initialize
-        await el.updateComplete
+		el.variablesQuery = {
+			result: {
+				data: {
+					hits: 2,
+					items: [
+						{
+							umm: {
+								Name: 'var1',
+								Dimensions: [
+									{ Name: 'DimA', Size: 5, Type: 'OTHER' },
+									{
+										Name: 'time',
+										Size: 10,
+										Type: 'TIME_DIMENSION',
+									},
+								],
+							},
+						},
+						{
+							umm: {
+								Name: 'var2',
+								Dimensions: [
+									{ Name: 'DimA', Size: 5, Type: 'OTHER' },
+									{
+										Name: 'lat',
+										Size: 180,
+										Type: 'LATITUDE_DIMENSION',
+									},
+								],
+							},
+						},
+					],
+				},
+			},
+		}
 
-        // Set the mode to original
-        el.dataAccessMode = 'original'
-        await el.updateComplete
+		await elementUpdated(el)
 
-        // Check if data-access component is present
-        const dataAccessComponent = el.shadowRoot?.querySelector('terra-data-access')
-        expect(dataAccessComponent).to.exist
-    })
+		const accordionContent = getAccordionContent(el)
 
-    it('should show subset options when subset mode is selected', async () => {
-        const el = await fixture(html`
-            <terra-data-subsetter
-                collection-entry-id="test-collection"
-                show-collection-search="false"
-            >
-            </terra-data-subsetter>
-        `)
+		expect(el.shadowRoot?.textContent).to.include('Select Dimensions:')
+		expect(accordionContent?.textContent).to.include('DimA')
+		expect(accordionContent?.textContent).to.not.include('time')
+		expect(accordionContent?.textContent).to.not.include('lat')
+	})
 
-        // Wait for the component to initialize
-        await el.updateComplete
+	it('shows union dimensions when one selected variable has no dimensions', async () => {
+		const el: any = await fixture(
+			html`<terra-data-subsetter></terra-data-subsetter>`,
+		)
 
-        // Set the mode to subset (default)
-        el.dataAccessMode = 'subset'
-        await el.updateComplete
+		el.collectionWithServices = {
+			conceptId: 'C1',
+			shortName: 'S1',
+			variableSubset: true,
+			bboxSubset: false,
+			temporalSubset: false,
+			concatenate: false,
+			reproject: false,
+			capabilitiesVersion: '1',
+			outputFormats: [],
+			services: [],
+			variables: [],
+			collection: {
+				ShortName: 'S1',
+				Version: '1',
+				granuleCount: 0,
+				EntryTitle: 'Test',
+				SpatialExtent: {
+					GranuleSpatialRepresentation: 'N/A',
+					HorizontalSpatialDomain: {
+						Geometry: {
+							CoordinateSystem: 'EPSG:4326',
+							BoundingRectangles: {
+								WestBoundingCoordinate: 0,
+								NorthBoundingCoordinate: 0,
+								EastBoundingCoordinate: 0,
+								SouthBoundingCoordinate: 0,
+							},
+						},
+					},
+				},
+				TemporalExtents: [],
+			},
+		}
 
-        // Check if subset options are present
-        const subsetSection = el.shadowRoot?.querySelector('.section h2')
-        expect(subsetSection?.textContent).to.include('Subset Options')
-    })
+		el.dataAccessMode = 'subset'
+
+		el.variablesQuery = {
+			result: {
+				data: {
+					hits: 2,
+					items: [
+						{
+							umm: {
+								Name: 'var1',
+								Dimensions: [],
+							},
+						},
+						{
+							umm: {
+								Name: 'var2',
+								Dimensions: [{ Name: 'DimA', Size: 4, Type: 'OTHER' }],
+							},
+						},
+					],
+				},
+			},
+		}
+
+		el.selectedVariables = [
+			{ name: 'var1', href: '', conceptId: 'C1' },
+			{ name: 'var2', href: '', conceptId: 'C2' },
+		]
+
+		await elementUpdated(el)
+
+		const accordionContent = getAccordionContent(el)
+
+		expect(el.shadowRoot?.textContent).to.include('Select Dimensions:')
+		expect(accordionContent?.textContent).to.include('DimA')
+	})
+
+	it('renders only common dimensions and excludes time/lat/lon', async () => {
+		const el: any = await fixture(
+			html`<terra-data-subsetter></terra-data-subsetter>`,
+		)
+
+		el.collectionWithServices = {
+			conceptId: 'C1',
+			shortName: 'S1',
+			variableSubset: true,
+			bboxSubset: false,
+			temporalSubset: false,
+			concatenate: false,
+			reproject: false,
+			capabilitiesVersion: '1',
+			outputFormats: [],
+			services: [],
+			variables: [],
+			collection: {
+				ShortName: 'S1',
+				Version: '1',
+				granuleCount: 0,
+				EntryTitle: 'Test',
+				SpatialExtent: {
+					GranuleSpatialRepresentation: 'N/A',
+					HorizontalSpatialDomain: {
+						Geometry: {
+							CoordinateSystem: 'EPSG:4326',
+							BoundingRectangles: {
+								WestBoundingCoordinate: 0,
+								NorthBoundingCoordinate: 0,
+								EastBoundingCoordinate: 0,
+								SouthBoundingCoordinate: 0,
+							},
+						},
+					},
+				},
+				TemporalExtents: [],
+			},
+		}
+
+		el.dataAccessMode = 'subset'
+
+		el.variablesQuery = {
+			result: {
+				data: {
+					hits: 2,
+					items: [
+						{
+							umm: {
+								Name: 'var1',
+								Dimensions: [
+									{ Name: 'DimA', Size: 4, Type: 'OTHER' },
+									{
+										Name: 'time',
+										Size: 10,
+										Type: 'TIME_DIMENSION',
+									},
+								],
+							},
+						},
+						{
+							umm: {
+								Name: 'var2',
+								Dimensions: [
+									{ Name: 'DimA', Size: 4, Type: 'OTHER' },
+									{
+										Name: 'lat',
+										Size: 180,
+										Type: 'LATITUDE_DIMENSION',
+									},
+								],
+							},
+						},
+					],
+				},
+			},
+		}
+
+		el.selectedVariables = [
+			{ name: 'var1', href: '', conceptId: 'C1' },
+			{ name: 'var2', href: '', conceptId: 'C2' },
+		]
+
+		await elementUpdated(el)
+
+		const accordionContent = getAccordionContent(el)
+
+		expect(el.shadowRoot?.textContent).to.include('Select Dimensions:')
+		expect(accordionContent?.textContent).to.include('DimA')
+		expect(accordionContent?.textContent).to.not.include('time')
+		expect(accordionContent?.textContent).to.not.include('lat')
+
+		const slider = accordionContent?.querySelector('terra-slider')
+		expect(slider).to.exist
+		expect((slider as any)?.max).to.equal(4)
+		expect((slider as any)?.min).to.equal(1)
+	})
 })

@@ -20,23 +20,25 @@ const App = () => <TerraButton>Button</TerraButton>;
 
 ### Variants
 
-Use the `variant` attribute to set the button's variant.
+Use the `variant` attribute to set the button's variant. CTA (Call To Action) is used to grab a users attention to an action.
 
 ```html:preview
 <terra-button variant="default">Default</terra-button>
 <terra-button variant="primary">Primary</terra-button>
+<terra-button variant="cta">CTA</terra-button>
 <terra-button variant="success">Success</terra-button>
 <terra-button variant="warning">Warning</terra-button>
 <terra-button variant="danger">Danger</terra-button>
 ```
 
 ```jsx:react
-import TerraButton from '@shoelace-style/shoelace/dist/react/button';
+import TerraButton from '@nasa-terra/components/dist/react/button';
 
 const App = () => (
   <>
     <TerraButton variant="default">Default</TerraButton>
     <TerraButton variant="primary">Primary</TerraButton>
+    <terra-button variant="cta">CTA</terra-button>
     <TerraButton variant="success">Success</TerraButton>
     <TerraButton variant="warning">Warning</TerraButton>
     <TerraButton variant="danger">Danger</TerraButton>
@@ -55,7 +57,7 @@ Use the `size` attribute to change a button's size.
 ```
 
 ```jsx:react
-import TerraButton from '@shoelace-style/shoelace/dist/react/button';
+import TerraButton from '@nasa-terra/components/dist/react/button';
 
 const App = () => (
   <>
@@ -73,13 +75,14 @@ Use the `outline` attribute to draw outlined buttons with transparent background
 ```html:preview
 <terra-button variant="default" outline>Default</terra-button>
 <terra-button variant="primary" outline>Primary</terra-button>
+<terra-button variant="cta" outline>CTA</terra-button>
 <terra-button variant="success" outline>Success</terra-button>
 <terra-button variant="warning" outline>Warning</terra-button>
 <terra-button variant="danger" outline>Danger</terra-button>
 ```
 
 ```jsx:react
-import TerraButton from '@shoelace-style/shoelace/dist/react/button';
+import TerraButton from '@nasa-terra/components/dist/react/button';
 
 const App = () => (
   <>
@@ -88,6 +91,9 @@ const App = () => (
     </TerraButton>
     <TerraButton variant="primary" outline>
       Primary
+    </TerraButton>
+    <TerraButton variant="cta" outline>
+      CTA
     </TerraButton>
     <TerraButton variant="success" outline>
       Success
@@ -133,7 +139,7 @@ const App = () => (
 ```
 
 ```jsx:react
-import TerraButton from '@shoelace-style/shoelace/dist/react/button';
+import TerraButton from '@nasa-terra/components/dist/react/button';
 
 const = App = () => (
   <>
@@ -178,7 +184,7 @@ Use the `text` variant to create text buttons that share the same size as regula
 ```
 
 ```jsx:react
-import TerraButton from '@shoelace-style/shoelace/dist/react/button';
+import TerraButton from '@nasa-terra/components/dist/react/button';
 
 const App = () => (
   <>
@@ -206,7 +212,7 @@ Use the `pagelink` variant to create text buttons that use bold text and a red c
 ```
 
 ```jsx:react
-import TerraButton from '@shoelace-style/shoelace/dist/react/button';
+import TerraButton from '@nasa-terra/components/dist/react/button';
 
 const App = () => (
   <>
@@ -235,7 +241,7 @@ It's often helpful to have a button that works like a link. This is possible by 
 ```
 
 ```jsx:react
-import TerraButton from '@shoelace-style/shoelace/dist/react/button';
+import TerraButton from '@nasa-terra/components/dist/react/button';
 
 const App = () => (
   <>
@@ -270,7 +276,7 @@ As expected, buttons can be given a custom width by passing inline styles to the
 {% raw %}
 
 ```jsx:react
-import TerraButton from '@shoelace-style/shoelace/dist/react/button';
+import TerraButton from '@nasa-terra/components/dist/react/button';
 
 const App = () => (
   <>
@@ -304,7 +310,7 @@ Use the `caret` attribute to add a dropdown indicator when a button will trigger
 ```
 
 ```jsx:react
-import TerraButton from '@shoelace-style/shoelace/dist/react/button';
+import TerraButton from '@nasa-terra/components/dist/react/button';
 
 const App = () => (
   <>
@@ -332,7 +338,7 @@ Use the button `shape` attribute to override its radius. Useful for controlling 
 ```
 
 ```jsx:react
-import TerraButton from '@shoelace-style/shoelace/dist/react/button';
+import TerraButton from '@nasa-terra/components/dist/react/button';
 
 const App = () => (
   <>
@@ -361,7 +367,7 @@ Use the `loading` attribute to make a button busy. The width will remain the sam
 ```
 
 ```jsx:react
-import TerraButton from '@shoelace-style/shoelace/dist/react/button';
+import TerraButton from '@nasa-terra/components/dist/react/button';
 
 const App = () => (
   <>
@@ -393,7 +399,7 @@ Use the `disabled` attribute to disable a button.
 ```
 
 ```jsx:react
-import TerraButton from '@shoelace-style/shoelace/dist/react/button';
+import TerraButton from '@nasa-terra/components/dist/react/button';
 
 const App = () => (
   <>

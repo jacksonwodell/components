@@ -16,7 +16,7 @@ import TerraLoader from '../loader/loader.component.js'
  * @summary Menu items provide options for the user to pick from in a menu.
  * @documentation https://terra-ui.netlify.app/components/menu-item
  * @status stable
- * @since 2.0
+ * @since 1.0
  *
  * @dependency terra-icon
  * @dependency terra-popup
@@ -184,8 +184,8 @@ export default class TerraMenuItem extends TerraElement {
             >
                 <span part="checked-icon" class="menu-item__check">
                     <terra-icon
-                        name="check"
-                        library="system"
+                        name="solid-check"
+                        library="heroicons"
                         aria-hidden="true"
                     ></terra-icon>
                 </span>

@@ -26,8 +26,9 @@ export default css`
         z-index: 9;
     }
 
-    terra-spatial-picker::part(leaflet-bbox),
-    terra-spatial-picker::part(leaflet-edit) {
-        display: none;
+    .warning {
+        color: #dc2626;
+        font-weight: 500;
+        margin-bottom: 0.25rem;
     }
 `

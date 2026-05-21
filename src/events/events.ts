@@ -8,6 +8,7 @@ export type { TerraMapChangeEvent } from './terra-map-change.js'
 export type { TerraRemoveEvent } from './terra-remove.js'
 export type { TerraSearchEvent } from './terra-search.js'
 export type { TerraLoginEvent } from './terra-login.ts'
+export type { TerraPlotToolbarExportImageEvent } from './terra-plot-toolbar-export-image.js'
 export type { TerraTimeSeriesDataChangeEvent } from './terra-time-series-data-change.js'
 export type { TerraShowEvent } from './terra-show.js'
 export type { TerraHideEvent } from './terra-hide.js'
@@ -15,6 +16,10 @@ export type { TerraAfterShowEvent } from './terra-after-show.js'
 export type { TerraAfterHideEvent } from './terra-after-hide.js'
 export type { TerraDialogShowEvent } from './terra-dialog-show.js'
 export type { TerraDialogHideEvent } from './terra-dialog-hide.js'
+export type { TerraDialogAfterShowEvent } from './terra-dialog-after-show.js'
+export type { TerraDialogAfterHideEvent } from './terra-dialog-after-hide.js'
+export type { TerraDialogRequestCloseEvent } from './terra-dialog-request-close.js'
+export type { TerraDialogInitialFocusEvent } from './terra-dialog-initial-focus.js'
 export type { TerraVariablesChangeEvent } from './terra-variables-change.js'
 export type { TerraPlotRelayoutEvent } from './terra-plot-relayout.js'
 export type { TerraSubsetJobCompleteEvent } from './terra-subset-job-complete.js'
@@ -36,3 +41,21 @@ export type { TerraClickEvent } from './terra-click.js'
 export type { TerraInvalidEvent } from './terra-invalid.js'
 export type { TerraPageChangeEvent } from './terra-page-change.js'
 export type { TerraClearEvent } from './terra-clear.js'
+export type { TerraCloseEvent } from './terra-close.js'
+export type { TerraTabShowEvent } from './terra-tab-show.js'
+export type { TerraTabHideEvent } from './terra-tab-hide.js'
+export type {
+    TerraGridReadyEvent,
+    TerraSelectionChangedEvent,
+    TerraSortChangedEvent,
+    TerraFilterChangedEvent,
+    TerraRowClickedEvent,
+    TerraRowDoubleClickedEvent,
+    TerraCellClickedEvent,
+    TerraCellValueChangedEvent,
+} from './terra-data-grid.js'
+export type { TerraPlotOptionsChangeEvent } from './terra-plot-options-change.js'
+export type { TerraDateSelectionInvalidEvent } from './terra-date-selection-invalid.js'
+export type { TerraHarmonyJobStatusUpdateEvent } from './terra-harmony-job-status-update.js'
+export type { TerraHarmonyJobSelectEvent } from './terra-harmony-job-select.js'
+export type { TerraHarmonyJobDeleteEvent } from './terra-harmony-job-delete.js'

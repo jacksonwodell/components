@@ -25,7 +25,7 @@ import type { ListItem } from './variable-combobox.types.js'
  * @summary Fuzzy-search for dataset variables in combobox with list autocomplete.
  * @documentation https://terra-ui.netlify.app/components/variable-combobox
  * @see https://www.w3.org/WAI/ARIA/apg/patterns/combobox/examples/combobox-autocomplete-list/
- * @status MVP
+ * @status stable
  * @since 1.0
  *
  * @csspart base - A `search` element, the component's base.
@@ -431,6 +431,7 @@ export default class TerraVariableCombobox extends TerraElement {
                         : this.query}
                     @input=${this.#handleComboboxChange}
                     @keydown=${this.#handleKeydown}
+                    @click=${this.#handleButtonClick}
                 />
                 <terra-button
                     shape="square-left"
@@ -439,6 +440,7 @@ export default class TerraVariableCombobox extends TerraElement {
                     aria-label="List of Searchable Variables"
                     class="combobox-button"
                     id="combobox-button"
+                    variant="text"
                     part="button"
                     tabindex="-1"
                     type="button"

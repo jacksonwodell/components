@@ -11,7 +11,6 @@ export { default as TerraPlot } from './components/plot/plot.js'
 export { default as TerraSpatialPicker } from './components/spatial-picker/spatial-picker.js'
 export { default as TerraTimeSeries } from './components/time-series/time-series.js'
 export { default as TerraVariableCombobox } from './components/variable-combobox/variable-combobox.js'
-
 export { default as TerraBrowseVariables } from './components/browse-variables/browse-variables.js'
 export { default as TerraLogin } from './components/login/login.js'
 export { default as TerraDialog } from './components/dialog/dialog.js'
@@ -42,13 +41,31 @@ export { default as TerraCheckbox } from './components/checkbox/checkbox.js'
 export { default as TerraRadio } from './components/radio/radio.js'
 export { default as TerraRadioGroup } from './components/radio-group/radio-group.js'
 export { default as TerraSelect } from './components/select/select.js'
-export { default as TerraOption } from './components/option/option.js';
-export { default as TerraFileUpload } from './components/file-upload/file-upload.js';
-export { default as TerraTextarea } from './components/textarea/textarea.js';
+export { default as TerraOption } from './components/option/option.js'
+export { default as TerraFileUpload } from './components/file-upload/file-upload.js'
+export { default as TerraTextarea } from './components/textarea/textarea.js'
+export { default as TerraTabs } from './components/tabs/tabs.js'
+export { default as TerraTab } from './components/tab/tab.js'
+export { default as TerraTabPanel } from './components/tab-panel/tab-panel.js'
+export { default as TerraBreadcrumbs } from './components/breadcrumbs/breadcrumbs.js'
+export { default as TerraBreadcrumb } from './components/breadcrumb/breadcrumb.js'
+export { default as TerraBadge } from './components/badge/badge.js'
+export { default as TerraTooltip } from './components/tooltip/tooltip.js'
+export { default as TerraToast } from './components/toast/toast.js'
+export { default as TerraDataGrid } from './components/data-grid/data-grid.js'
+export { default as TerraProgressBar } from './components/progress-bar/progress-bar.js'
+export { default as TerraButtonGroup } from './components/button-group/button-group.js'
+export { default as TerraStepper } from './components/stepper/stepper.js'
+export { default as TerraStepperStep } from './components/stepper-step/stepper-step.js'
+export { default as TerraCard } from './components/card/card.js'
+export { default as TerraDivider } from './components/divider/divider.js'
+export { default as TerraEarthdataLogin } from './components/earthdata-login/earthdata-login.js'
+export { default as TerraHarmonyHistory } from './components/harmony-history/harmony-history.js'
+export { default as TerraBanner } from './components/banner/banner.js'
+
 /* plop:component */
 
 // Utilities
-export * from './utilities/animation.js'
 export * from './utilities/base-path.js'
 export * from './utilities/form.js'
 export * from './utilities/icon-library.js'

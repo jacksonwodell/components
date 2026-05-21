@@ -5,10 +5,7 @@ export default css`
         display: grid;
         grid-template-rows: auto 1fr;
         grid-template-columns: 1fr;
-    }
-
-    .spacer {
-        padding-block: 1.375rem;
+        position: relative;
     }
 
     .toolbar-container {
@@ -30,7 +27,6 @@ export default css`
     }
 
     #settings {
-        opacity: 0.75;
         position: absolute;
         bottom: 10px;
         left: 10px;
@@ -39,23 +35,65 @@ export default css`
         border-radius: 4px;
         font-size: 12px;
         font-family: monospace;
-        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
         z-index: 10;
-        pointer-events: auto;
-    }
-
-    dialog {
-        opacity: 1;
-        top: 50%;
-        left: 50%;
-        transform: translate(-50%, -50%);
-        margin: 0;
     }
 
     label {
         display: flex;
         align-items: center;
         gap: 8px;
+    }
+
+    #legend {
+        font-family: sans-serif;
+        position: absolute;
+        z-index: 1;
+        right: 1em;
+        top: 1em;
+        background-color: white;
+        opacity: 1;
+        padding: 0.5em;
+        border-radius: 0.2em;
+        font-size: 12px;
+        font-family: monospace;
+        display: flex;
+        align-items: center;
+        flex-direction: column;
+    }
+
+    .color-box {
+        width: 3.5em;
+        height: 0.375em;
+    }
+
+    dialog {
+        position: absolute;
+        top: calc(50% - 100px);
+        border: 1px solid var(--terra-container-dialog-border, #b9b9bb);
+        border-radius: var(--terra-container-dialog-border-radius, 8px);
+        box-shadow: var(--terra-shadow-large);
+        background-color: var(--terra-container-dialog-bg, #ffffff);
+    }
+
+    .no-data-alert,
+    .error-alert {
+        display: block;
+        width: 100%;
+        margin-bottom: 1rem;
+    }
+
+    .harmony-job-link {
+        margin-top: 0.5rem;
+        font-size: 0.875rem;
+    }
+
+    .harmony-job-link a {
+        color: var(--terra-caption-color, #959595);
+        text-decoration: none;
+    }
+
+    .harmony-job-link a:hover {
+        text-decoration: underline;
     }
 
     :root,

@@ -8,7 +8,7 @@ export default css`
 
         block-size: var(--terra-block-size, 2.1875rem);
         box-sizing: border-box;
-        color: #1b1b1b; /* HDS uses this color for body text but does not have a defined color in the HDS palette */
+        color: var(--terra-input-text-default);
         contain: layout size style;
         contain-intrinsic-size: var(--terra-inline-size, 100%)
             calc(33vh + var(--terra-block-size, 2.1875rem));
@@ -44,16 +44,10 @@ export default css`
         box-sizing: inherit;
     }
 
-    .search-input-group {
-        block-size: 100%;
-        display: flex;
-        flex-wrap: wrap;
-    }
-
     .tag-container {
         block-size: var(--terra-block-size, 2.25rem);
         position: absolute;
-        top: 2.25rem;
+        top: 3rem;
         display: flex;
         flex-wrap: wrap;
         align-content: center;
@@ -106,29 +100,47 @@ export default css`
     .combobox {
         block-size: var(--terra-block-size, 2.25rem);
         flex: 1 1 auto;
-        padding-inline: 0.5rem;
+        max-inline-size: 100%;
+        margin-top: 0.5rem;
+        height: var(--terra-block-size, 3rem);
+    }
+
+    .combobox::part(input) {
+        padding-inline: var(--input-padding-inline-start, 0.5rem) 0.5rem;
         transition:
             background-color 0.2s ease,
             border-color 0.2s ease;
-        max-inline-size: 100%;
+    }
+
+    .combobox::part(base) {
+        transition:
+            background-color 0.2s ease,
+            border-color 0.2s ease;
     }
 
     .combobox::placeholder {
-        color: var(--terra-color-carbon-60);
+        color: var(--terra-input-text-placeholder);
     }
 
     .combobox:focus {
-        border-color: var(--terra-color-carbon-40);
+        border-color: var(--terra-input-border-focus);
         outline: 0;
     }
 
+    .search-input-group {
+        block-size: 100%;
+        display: flex;
+        flex-wrap: wrap;
+    }
+
     .search-input-group:has(.combobox:not(:focus)) + .search-results[open] {
-        border-color: var(--terra-color-carbon-30);
+        border-color: var(--terra-input-border-default);
     }
 
     .combobox-button {
         position: absolute;
         right: 0;
+        bottom: 5px;
         z-index: 2;
         margin-block: 0;
         margin-inline: 0;
@@ -163,13 +175,13 @@ export default css`
     }
 
     .search-help {
-        color: var(--terra-color-carbon-60);
+        color: var(--terra-input-help-text-color);
         flex: 1 1 100%;
-        font-size: var(--terra-font-size-small);
+        font-size: var(--terra-input-help-text-font-size-medium);
         line-height: var(--terra-line-height-normal);
         margin-block: 0;
         position: absolute;
-        bottom: -10px;
+        bottom: -25px;
     }
 
     .external-link {
@@ -178,7 +190,7 @@ export default css`
     }
 
     .search-results {
-        background-color: var(--terra-color-spacesuit-white);
+        background-color: var(--terra-input-background-default);
         block-size: calc(33vh - var(--terra-block-size, 2.1875rem));
         border-block-end: 2px solid transparent;
         border-inline: 2px solid transparent;
@@ -204,7 +216,8 @@ export default css`
     }
 
     .search-results[open] {
-        border-color: var(--terra-color-carbon-40);
+        border-color: var(--terra-container-panel-border);
+        border-radius: var(--terra-container-panel-border-radius);
         content-visibility: auto;
         max-height: calc(33vh - var(--terra-block-size, 2.1875rem));
         opacity: 1;
@@ -218,7 +231,8 @@ export default css`
     }
 
     .search-results .error {
-        color: var(--terra-color-nasa-red);
+        color: var(--terra-text-on-error);
+        background-color: var(--terra-color-bg-error-subtle);
         font-family: var(--terra-font-family--dm-mono);
         padding-block: 2rem;
     }

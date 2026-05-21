@@ -4,16 +4,14 @@ import componentStyles from '../../styles/component.styles.js'
 import TerraElement from '../../internal/terra-element.js'
 import styles from './data-subsetter-history.styles.js'
 import type { CSSResultGroup } from 'lit'
-import { DataSubsetterHistoryController } from './data-subsetter-history.controller.js'
-import {
-    Status,
-    type SubsetJobs,
-    type SubsetJobStatus,
-} from '../../data-services/types.js'
+import { QueryController } from '../../controllers/query.controller.js'
+import { QueryClientMixin } from '../../mixins/query-client.mixin.js'
+import { queryHarmonyJobs } from '../../queries/harmony.queries.js'
 import TerraIcon from '../icon/icon.component.js'
 import TerraDataSubsetter from '../data-subsetter/data-subsetter.component.js'
 import TerraDialog from '../dialog/dialog.component.js'
 import { AuthController } from '../../auth/auth.controller.js'
+import { Status, type SubsetJobStatus } from '../../apis/harmony.api.js'
 
 /**
  * @summary Shows a floating panel with a user's recent data subset requests and their status, with quick access to results and re-submission.
@@ -25,7 +23,9 @@ import { AuthController } from '../../auth/auth.controller.js'
  * @dependency terra-data-subsetter
  * @dependency terra-dialog
  */
-export default class TerraDataSubsetterHistory extends TerraElement {
+export default class TerraDataSubsetterHistory extends QueryClientMixin(
+    TerraElement,
+) {
     static dependencies: Record<string, typeof TerraElement> = {
         'terra-icon': TerraIcon,
         'terra-data-subsetter': TerraDataSubsetter,
@@ -44,7 +44,7 @@ export default class TerraDataSubsetterHistory extends TerraElement {
      * this prop allows you to override that behavior and always show the history panel
      */
     @property({ attribute: 'always-show', type: Boolean })
-    alwaysShow: boolean
+    alwaysShow: boolean = true
 
     @state()
     collapsed: boolean = true
@@ -53,25 +53,28 @@ export default class TerraDataSubsetterHistory extends TerraElement {
     selectedJob?: string
 
     @state()
+    selectedCollectionEntryId?: string
+
+    @state()
     hideCancelled: boolean = true
 
     @query('[part~="dialog"]')
     dialog: TerraDialog
 
-    #controller = new DataSubsetterHistoryController(this)
-    _authController = new AuthController(this)
+    @query('[part~="subsetter"]')
+    subsetter: TerraDataSubsetter
 
-    connectedCallback(): void {
-        super.connectedCallback()
-        this.addController(this.#controller)
-    }
+    jobsQuery = new QueryController(this, () =>
+        queryHarmonyJobs({ page: 1 }, { bearerToken: this.bearerToken }),
+    )
+    _authController = new AuthController(this)
 
     private toggleCollapsed() {
         this.collapsed = !this.collapsed
     }
 
     render() {
-        const jobs = this.#controller.jobs
+        const jobs = this.jobsQuery.result?.data
         const hasJobs = jobs && jobs.jobs.length > 0
 
         if (!hasJobs) {
@@ -86,8 +89,9 @@ export default class TerraDataSubsetterHistory extends TerraElement {
                 </div>
 
                 <div class="history-panel">
-                    ${hasJobs
-                        ? html`
+                    ${
+                        hasJobs
+                            ? html`
                               <div class="history-link-row">
                                   <label>
                                       <input
@@ -117,13 +121,15 @@ export default class TerraDataSubsetterHistory extends TerraElement {
                                   </a>
                               </div>
                           `
-                        : nothing}
+                            : nothing
+                    }
 
                     <div class="history-list">
-                        ${jobs
-                            ? hasJobs
-                                ? this.#renderHistoryItems(jobs)
-                                : html`<div class="history-alert-message">
+                        ${
+                            jobs
+                                ? hasJobs
+                                    ? this.#renderHistoryItems(jobs)
+                                    : html`<div class="history-alert-message">
                                       You haven't made any requests yet.<br />
                                       Get started by
                                       <a
@@ -132,32 +138,37 @@ export default class TerraDataSubsetterHistory extends TerraElement {
                                           @click=${(e: Event) => {
                                               e.preventDefault()
                                               this.selectedJob = undefined
+                                              this.selectedCollectionEntryId =
+                                                  undefined
                                               this.dialog?.show()
                                           }}
                                       >
                                           creating your first request!</a
                                       >.
                                   </div>`
-                            : html`<div class="history-alert-message">
+                                : html`<div class="history-alert-message">
                                   Retrieving your requests....
-                              </div>`}
+                              </div>`
+                        }
                     </div>
                 </div>
             </div>
 
-            <terra-dialog part="dialog" width="1500px">
-                <terra-data-subsetter
-                    .jobId=${this.selectedJob}
-                    .bearerToken=${this.bearerToken}
-                ></terra-data-subsetter>
-            </terra-dialog>
+            <terra-data-subsetter
+                .jobId=${this.selectedJob}
+                .collectionEntryId=${this.selectedCollectionEntryId}
+                .bearerToken=${this.bearerToken}
+                is-history-view
+                dialog="history-dialog"
+                part="subsetter"
+            ></terra-data-subsetter>
         `
     }
 
-    #renderHistoryItems(subsetJobs: SubsetJobs) {
+    #renderHistoryItems(subsetJobs: { jobs: SubsetJobStatus[] }) {
         const filteredJobs = subsetJobs.jobs
             .slice()
-            .filter(job => {
+            .filter((job) => {
                 if (this.hideCancelled) {
                     return job.status !== Status.CANCELED
                 }
@@ -166,7 +177,8 @@ export default class TerraDataSubsetterHistory extends TerraElement {
             })
             .sort(
                 (a, b) =>
-                    new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+                    new Date(b.createdAt).getTime() -
+                    new Date(a.createdAt).getTime(),
             )
 
         if (!filteredJobs.length) {
@@ -180,6 +192,7 @@ export default class TerraDataSubsetterHistory extends TerraElement {
                         @click=${(e: Event) => {
                             e.preventDefault()
                             this.selectedJob = undefined
+                            this.selectedCollectionEntryId = undefined
                             this.dialog?.show()
                         }}
                     >
@@ -189,7 +202,7 @@ export default class TerraDataSubsetterHistory extends TerraElement {
             `
         }
 
-        return filteredJobs.map(job => {
+        return filteredJobs.map((job) => {
             let fillColor = '#0066cc'
             if (
                 job.status === Status.SUCCESSFUL ||
@@ -212,17 +225,17 @@ export default class TerraDataSubsetterHistory extends TerraElement {
                     ? 100
                     : job.progress
 
+            const parsedLabels = this.#parseLabelsAsJson(job.labels || [])
+
             return html`
                 <div
                     class="history-item"
                     @click=${this.#handleHistoryItemClick.bind(this, job)}
                 >
                     <div class="item-header">
-                        <span class="item-title">
-                            ${job.labels?.length
-                                ? job.labels.join(' ')
-                                : job.request.split('.nasa.gov').pop()}
-                        </span>
+                        <div class="item-title">
+                            ${this.#renderSubsetterHistoryItem(job, parsedLabels)}
+                        </div>
                     </div>
 
                     <div class="progress-bar">
@@ -238,8 +251,52 @@ export default class TerraDataSubsetterHistory extends TerraElement {
         })
     }
 
+    #renderSubsetterHistoryItem(
+        job: SubsetJobStatus,
+        labels: Record<string, unknown>,
+    ) {
+        return html`
+            <div class="subsetter-history-item">
+                <div class="history-item-title">
+                    ${labels['collection-entry-id'] ?? job.jobID}
+                </div>
+                <div>${new Date(job.createdAt).toLocaleString()}</div>
+            </div>
+        `
+    }
+
     #handleHistoryItemClick(job: SubsetJobStatus) {
+        const parsedLabels = this.#parseLabelsAsJson(job.labels || [])
         this.selectedJob = job.jobID
-        this.dialog?.show()
+        this.selectedCollectionEntryId = parsedLabels['collection-entry-id'] as
+            | string
+            | undefined
+        this.subsetter?.showDialog()
+    }
+
+    #parseLabelsAsJson(labels: string[]): { [k: string]: unknown } {
+        try {
+            return Object.fromEntries(
+                labels.map((line) => {
+                    const [key, ...rest] = line.split(':')
+                    const valueRaw = rest.join(':').trim()
+
+                    let value: unknown = valueRaw
+
+                    // try to parse JSON values
+                    if (valueRaw.startsWith('{') || valueRaw.startsWith('[')) {
+                        try {
+                            value = JSON.parse(valueRaw)
+                        } catch {
+                            value = valueRaw
+                        }
+                    }
+
+                    return [key.trim(), value]
+                }),
+            )
+        } catch (e) {
+            return {}
+        }
     }
 }

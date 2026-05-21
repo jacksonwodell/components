@@ -80,6 +80,22 @@ Show a loading state on menu items.
 </terra-menu>
 ```
 
+### Menu with Dividers
+
+Use dividers to visually group menu items.
+
+```html:preview
+<terra-menu style="max-width: 200px;">
+  <terra-menu-item value="1">Option 1</terra-menu-item>
+  <terra-menu-item value="2">Option 2</terra-menu-item>
+  <terra-menu-item value="3">Option 3</terra-menu-item>
+  <terra-divider></terra-divider>
+  <terra-menu-item value="4">Option 4</terra-menu-item>
+  <terra-menu-item value="5">Option 5</terra-menu-item>
+  <terra-menu-item value="6">Option 6</terra-menu-item>
+</terra-menu>
+```
+
 ### Menu in Dropdown
 
 Menus are typically used inside dropdowns.
@@ -118,19 +134,19 @@ Listen for the `terra-select` event to handle menu item selection.
 
 The menu component follows accessibility best practices:
 
-- Uses proper ARIA attributes (`role="menu"`)
-- Supports keyboard navigation (Arrow keys, Home, End, Enter, Space)
-- Implements roving tabindex for focus management
-- Works with screen readers
+-   Uses proper ARIA attributes (`role="menu"`)
+-   Supports keyboard navigation (Arrow keys, Home, End, Enter, Space)
+-   Implements roving tabindex for focus management
+-   Works with screen readers
 
 ## Keyboard Shortcuts
 
-| Key | Action |
-|-----|--------|
-| `Arrow Down` | Moves focus to the next item |
-| `Arrow Up` | Moves focus to the previous item |
-| `Home` | Moves focus to the first item |
-| `End` | Moves focus to the last item |
-| `Enter` or `Space` | Selects the focused item |
+| Key                | Action                           |
+| ------------------ | -------------------------------- |
+| `Arrow Down`       | Moves focus to the next item     |
+| `Arrow Up`         | Moves focus to the previous item |
+| `Home`             | Moves focus to the first item    |
+| `End`              | Moves focus to the last item     |
+| `Enter` or `Space` | Selects the focused item         |
 
 [component-metadata:terra-menu]

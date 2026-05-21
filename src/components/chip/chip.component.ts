@@ -14,6 +14,8 @@ import { classMap } from 'lit/directives/class-map.js'
  *
  * @slot - The chip's label.
  *
+ * @event terra-remove - emitted when the chip's close button is clicked
+ *
  * @cssproperty --terra-chip-background-color - The background color of the chip.
  * @cssproperty --terra-chip-color - The text color of the chip.
  */

@@ -27,7 +27,7 @@ import type TerraOption from '../option/option.component.js'
  * @summary Select fields are a form field used to select one option from a list.
  * @documentation https://terra-ui.netlify.app/components/select
  * @status stable
- * @since 2.0
+ * @since 1.0
  *
  * @dependency terra-icon
  * @dependency terra-popup
@@ -239,11 +239,7 @@ export default class TerraSelect extends TerraElement implements TerraFormContro
     }
 
     private addOpenListeners() {
-        //
         // Listen on the root node instead of the document in case the elements are inside a shadow root
-        //
-        // https://github.com/shoelace-style/shoelace/issues/1763
-        //
         document.addEventListener('focusin', this.handleDocumentFocusIn)
         document.addEventListener('keydown', this.handleDocumentKeyDown)
         document.addEventListener('mousedown', this.handleDocumentMouseDown)
@@ -793,7 +789,7 @@ export default class TerraSelect extends TerraElement implements TerraFormContro
         }
 
         this.open = false
-        return waitForEvent(this, 'sl-after-hide')
+        return waitForEvent(this, 'terra-after-hide')
     }
 
     /** Checks for validity but does not show a validation message. Returns `true` when valid and `false` when invalid. */

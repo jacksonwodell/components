@@ -6,7 +6,7 @@ import TerraElement from '../../internal/terra-element.js'
 import TerraIcon from '../icon/icon.component.js'
 import TerraLoader from '../loader/loader.component.js'
 import TerraPlot from '../plot/plot.component.js'
-import { html } from 'lit'
+import { html, nothing } from 'lit'
 import { property, query, state } from 'lit/decorators.js'
 import { TaskStatus } from '@lit/task'
 import { TimeSeriesController } from './time-series.controller.js'
@@ -14,23 +14,61 @@ import type { CSSResultGroup } from 'lit'
 import type { Variable } from '../browse-variables/browse-variables.types.js'
 import type { TerraPlotRelayoutEvent } from '../../events/terra-plot-relayout.js'
 import { formatDate } from '../../utilities/date.js'
+import {
+    extractHarmonyError,
+    formatHarmonyErrorMessage,
+} from '../../utilities/harmony.js'
 import TerraPlotToolbar from '../plot-toolbar/plot-toolbar.component.js'
 import { AuthController } from '../../auth/auth.controller.js'
 import { cache } from 'lit/directives/cache.js'
-import { getFetchVariableTask } from '../../metadata-catalog/tasks.js'
+import { getFetchVariableTask } from '../../utilities/variable-task.js'
+import { QueryClientMixin } from '../../mixins/query-client.mixin.js'
+
+const variableEntryIdsConverter = {
+    fromAttribute: (value: string | null): string[] => {
+        if (!value) {
+            return []
+        }
+
+        try {
+            const parsedValue = JSON.parse(value)
+
+            if (Array.isArray(parsedValue)) {
+                return parsedValue
+                    .map((item) => String(item).trim())
+                    .filter(Boolean)
+            }
+        } catch {
+            // fall back to comma-delimited parsing
+        }
+
+        return value
+            .split(',')
+            .map((item) => item.trim())
+            .filter(Boolean)
+    },
+    toAttribute: (value: string[] | undefined): string | null => {
+        if (!value?.length) {
+            return null
+        }
+
+        return JSON.stringify(value)
+    },
+}
 
 /**
  * @summary A component for visualizing time series data using the GES DISC Giovanni API.
  * @documentation https://terra-ui.netlify.app/components/time-series
- * @status mvp
+ * @status stable
  * @since 1.0
  *
  * @dependency terra-plot
  *
  * @event terra-date-range-change - Emitted whenever the date range is modified
  * @event terra-time-series-data-change - Emitted whenever time series data has been fetched from Giovanni
+ * @event terra-harmony-job-status-update - Emitted whenever the status of a Harmony job is updated
  */
-export default class TerraTimeSeries extends TerraElement {
+export default class TerraTimeSeries extends QueryClientMixin(TerraElement) {
     static styles: CSSResultGroup = [componentStyles, styles]
     static dependencies = {
         'terra-plot': TerraPlot,
@@ -41,13 +79,23 @@ export default class TerraTimeSeries extends TerraElement {
         'terra-plot-toolbar': TerraPlotToolbar,
     }
 
-    #timeSeriesController: TimeSeriesController
+    #timeSeriesController = new TimeSeriesController(this)
 
     /**
      * a variable entry ID (ex: GPM_3IMERGHH_06_precipitationCal)
      */
     @property({ attribute: 'variable-entry-id', reflect: true })
     variableEntryId?: string
+
+    /**
+     * variable entry IDs for multi-variable time series plotting
+     * (ex: ["GPM_3IMERGHH_06_precipitationCal", "GPM_3IMERGHH_06_probLiquidPrecipitation"])
+     */
+    @property({
+        attribute: 'variable-entry-ids',
+        converter: variableEntryIdsConverter,
+    })
+    variableEntryIds: string[] = []
 
     /**
      * a collection entry id (ex: GPM_3IMERGHH_06)
@@ -90,13 +138,24 @@ export default class TerraTimeSeries extends TerraElement {
     })
     location?: string
 
-    @property({ type: Boolean, attribute: 'show-citation' }) showCitation: boolean =
-        false
+    @property({ type: Boolean, attribute: 'show-citation' })
+    showCitation: boolean = false
 
+    @property({ type: Boolean, attribute: 'show-help' }) showHelp: boolean =
+        true
+        
     /**
      * if you include an application citation, it will be displayed in the citation panel alongside the dataset citation
      */
-    @property({ attribute: 'application-citation' }) applicationCitation?: string
+    @property({ attribute: 'application-citation' })
+    applicationCitation?: string
+
+    /**
+     * When true, disables automatic data fetching when the user zooms, pans, or otherwise interacts with the plot.
+     * When disabled, the plot will only show the data for the initial date range and won't fetch new data on plot interactions.
+     */
+    @property({ type: Boolean, attribute: 'disable-auto-fetch' })
+    disableAutoFetch = false
 
     /**
      * The token to be used for authentication with remote servers.
@@ -106,15 +165,65 @@ export default class TerraTimeSeries extends TerraElement {
     @property({ attribute: 'bearer-token', reflect: false })
     bearerToken?: string
 
+    @property({
+        attribute: 'mobile-view',
+        type: Boolean,
+        reflect: true,
+    })
+    mobileView = false
+
+    @property({
+        attribute: 'hide-toolbar',
+        type: Boolean,
+        reflect: true,
+    })
+    hideToolbar = false
+
+    @property({
+        attribute: 'product-label',
+        reflect: true,
+    })
+    productLabel?: string
+
+    /**
+     * the application ID is used for tracking purposes and will be included in the labels of Harmony jobs created by this component
+     */
+    @property({ attribute: 'application-id' })
+    applicationId?: string
+
+    /**
+     * When true, enables IndexedDB caching — data will be read from and written to the local cache.
+     * Defaults to false, meaning no caching is performed.
+     */
+    @property({ type: Boolean })
+    cache = false
+
+    /**
+     * If provided, skips creating a new Harmony job and instead waits for this existing job ID to complete.
+     */
+    @property({ attribute: 'job-id' })
+    jobId?: string
+
     @query('terra-plot') plot: TerraPlot
     @query('terra-plot-toolbar') plotToolbar: TerraPlotToolbar
 
     @state() catalogVariable: Variable
 
+    @state() catalogVariables: Variable[] = []
+
     /**
      * user quota reached maximum request
      */
     @state() private quotaExceededOpen = false
+
+    /**
+     * stores error information from time series requests
+     */
+    @state() private timeSeriesError: {
+        code: string
+        message?: string
+        context?: string
+    } | null = null
 
     /**
      * if true, we'll show a warning to the user about them requesting a large number of data points
@@ -137,24 +246,60 @@ export default class TerraTimeSeries extends TerraElement {
 
         this.addEventListener(
             'terra-time-series-error',
-            this.#handleQuotaError as EventListener
+            this.#handleQuotaError as EventListener,
         )
+    }
 
-        //* instantiate the time series contoller maybe with a token
-        this.#timeSeriesController = new TimeSeriesController(this)
+    updated(changedProps: Map<string, unknown>) {
+        super.updated(changedProps)
+
+        const taskStatus = this.#timeSeriesController.task.status
+
+        // Clear error when a new request starts
+        if (taskStatus === TaskStatus.PENDING && this.timeSeriesError) {
+            this.timeSeriesError = null
+        }
+
+        // Check if task has an error and we haven't already captured it via event
+        if (taskStatus === TaskStatus.ERROR && !this.timeSeriesError) {
+            const taskError = this.#timeSeriesController.task.error
+            if (taskError) {
+                // Use the utility to extract error information
+                const errorDetails = extractHarmonyError(taskError)
+
+                // Don't show errors for user-initiated cancellations
+                if (errorDetails.isCancellation) {
+                    return
+                }
+
+                this.timeSeriesError = {
+                    code: errorDetails.code,
+                    message: errorDetails.message,
+                    context: errorDetails.context,
+                }
+            }
+        }
     }
 
     disconnectedCallback(): void {
         super.disconnectedCallback()
         this.removeEventListener(
             'terra-time-series-error',
-            this.#handleQuotaError as EventListener
+            this.#handleQuotaError as EventListener,
         )
     }
 
     #handleQuotaError = (event: CustomEvent) => {
-        const { status } = event.detail
+        const { status, code, message, context } = event.detail
 
+        // Store error information
+        this.timeSeriesError = {
+            code: code || String(status),
+            message,
+            context,
+        }
+
+        // Keep the old quota handler for backward compatibility
         if (status === 429) {
             this.quotaExceededOpen = true
         }
@@ -174,10 +319,11 @@ export default class TerraTimeSeries extends TerraElement {
      */
     #abortDataLoad() {
         console.log('Aborting data load')
-        this.#timeSeriesController.task?.abort()
+        this.#timeSeriesController.task?.abort('Cancelled time series request')
     }
 
     #handleComponentLeave(event: MouseEvent) {
+        if (this.mobileView) return
         // Check if we're actually leaving the component by checking if the related target is outside
         const relatedTarget = event.relatedTarget as HTMLElement
         if (!this.contains(relatedTarget)) {
@@ -188,8 +334,9 @@ export default class TerraTimeSeries extends TerraElement {
     render() {
         return html`
             <div class="plot-container" @mouseleave=${this.#handleComponentLeave}>
-                ${this.quotaExceededOpen
-                    ? html`
+                ${
+                    this.quotaExceededOpen
+                        ? html`
                           <terra-alert
                               variant="warning"
                               duration="10000"
@@ -211,31 +358,104 @@ export default class TerraTimeSeries extends TerraElement {
                               for further assistance.
                           </terra-alert>
                       `
-                    : ''}
-                ${cache(
-                    this.catalogVariable
-                        ? html`<terra-plot-toolbar
-                              .catalogVariable=${this.catalogVariable}
-                              .plot=${this.plot}
-                              .timeSeriesData=${this.#timeSeriesController
-                                  .lastTaskValue ??
-                              this.#timeSeriesController.emptyPlotData}
-                              .location=${this.location}
-                              .startDate=${this.startDate}
-                              .endDate=${this.endDate}
-                              .cacheKey=${this.#timeSeriesController.getCacheKey()}
-                              .variableEntryId=${this.variableEntryId}
-                              .showCitation=${this.showCitation}
+                        : ''
+                }
+                ${
+                    !this.hideToolbar
+                        ? cache(
+                              this.catalogVariable
+                                  ? html`<terra-plot-toolbar
+                                    .catalogVariable=${this.catalogVariable}
+                                    .plot=${this.plot}
+                                    .timeSeriesData=${
+                                        this.#timeSeriesController
+                                            .lastTaskValue ??
+                                        this.#timeSeriesController.emptyPlotData
+                                    }
+                                    .location=${this.location}
+                                    .startDate=${this.startDate}
+                                    .endDate=${this.endDate}
+                                    .cacheKey=${this.#timeSeriesController.getCacheKey()}
+                                    .variableEntryId=${this.variableEntryId}
+                                    .showCitation=${this.showCitation}
+                                    .showHelp=${this.showHelp}
+                                    .mobileView=${this.mobileView}
+                                    .productLabel=${this.productLabel}
+                                    show-location
+                                >
+                                    <slot name="help-links" slot="help-links"></slot>
+                                </terra-plot-toolbar>`
+                                  : html`<div class="spacer"></div>`,
+                          )
+                        : nothing
+                }
+                ${
+                    this.#hasNoData()
+                        ? html`
+                          <terra-alert
+                              class="no-data-alert"
+                              variant="warning"
+                              open
+                              closable
                           >
-                              <slot name="help-links" slot="help-links"></slot>
-                          </terra-plot-toolbar>`
-                        : html`<div class="spacer"></div>`
-                )}
+                              <terra-icon
+                                  slot="icon"
+                                  name="outline-information-circle"
+                                  library="heroicons"
+                              ></terra-icon>
+                              We couldn't find available data for your selection. Try
+                              widening your area or changing the date range to find
+                              more results.
+                          </terra-alert>
+                      `
+                        : ''
+                }
+                ${
+                    this.#isVariableNotFound()
+                        ? html`
+                          <terra-alert
+                              class="no-data-alert"
+                              variant="danger"
+                              open
+                              closable
+                          >
+                              <terra-icon
+                                  slot="icon"
+                                  name="outline-exclamation-triangle"
+                                  library="heroicons"
+                              ></terra-icon>
+                              The selected variable was not found in the catalog
+                          </terra-alert>
+                      `
+                        : ''
+                }
+                ${
+                    this.timeSeriesError
+                        ? html`
+                          <terra-alert
+                              class="error-alert"
+                              variant="danger"
+                              open
+                              closable
+                              @terra-after-hide=${() => (this.timeSeriesError = null)}
+                          >
+                              <terra-icon
+                                  slot="icon"
+                                  name="outline-exclamation-triangle"
+                                  library="heroicons"
+                              ></terra-icon>
+                              ${this.#getErrorMessage(this.timeSeriesError)}
+                          </terra-alert>
+                      `
+                        : ''
+                }
 
                 <terra-plot
                     exportparts="base:plot__base, plot-title:plot__title"
-                    .data=${this.#timeSeriesController.lastTaskValue ??
-                    this.#timeSeriesController.emptyPlotData}
+                    .data=${
+                        this.#timeSeriesController.lastTaskValue ??
+                        this.#timeSeriesController.emptyPlotData
+                    }
                     .layout="${{
                         xaxis: {
                             title: 'Time',
@@ -254,14 +474,18 @@ export default class TerraTimeSeries extends TerraElement {
                         title: {
                             text:
                                 this.catalogVariable && this.location
-                                    ? `${this.catalogVariable.dataProductShortName} @ ${this.location}`
+                                    ? `${this.catalogVariable.dataProductShortName}${this.catalogVariables.length > 1 ? ` (${this.catalogVariables.length} variables)` : ''} @ ${this.location}`
                                     : null,
                         },
                     }}"
                     .config=${{
                         displayModeBar: true,
                         displaylogo: false,
-                        modeBarButtonsToRemove: ['toImage', 'zoom2d', 'resetScale2d'],
+                        modeBarButtonsToRemove: [
+                            'toImage',
+                            'zoom2d',
+                            'resetScale2d',
+                        ],
                         responsive: true,
                     }}
                     @terra-plot-relayout=${this.#handlePlotRelayout}
@@ -269,17 +493,26 @@ export default class TerraTimeSeries extends TerraElement {
             </div>
 
             <dialog
-                ?open=${this.#timeSeriesController.task.status ===
-                    TaskStatus.PENDING ||
-                this._fetchVariableTask.status === TaskStatus.PENDING}
+                ?open=${
+                    this.#timeSeriesController.task.status ===
+                        TaskStatus.PENDING ||
+                    this._fetchVariableTask.status === TaskStatus.PENDING
+                }
             >
                 <terra-loader indeterminate></terra-loader>
 
-                ${this.#timeSeriesController.task.status === TaskStatus.PENDING
-                    ? html`<p>
-                          Plotting ${this.catalogVariable?.dataFieldId}&hellip;
+                ${
+                    this.#timeSeriesController.task.status ===
+                    TaskStatus.PENDING
+                        ? html`<p>
+                          ${
+                              this.catalogVariables.length > 1
+                                  ? `Plotting ${this.catalogVariables.length} variables…`
+                                  : `Plotting ${this.catalogVariable?.dataFieldId}…`
+                          }
                       </p>`
-                    : html`<p>Preparing plot&hellip;</p>`}
+                        : html`<p>Preparing plot&hellip;</p>`
+                }
 
                 <terra-button @click=${this.#abortDataLoad}>Cancel</terra-button>
             </dialog>
@@ -319,14 +552,88 @@ export default class TerraTimeSeries extends TerraElement {
     }
 
     #getYAxisLabel() {
-        if (!this.catalogVariable) {
+        const units = (
+            this.catalogVariables.length
+                ? this.catalogVariables.map(
+                      (variable) => variable.dataFieldUnits,
+                  )
+                : [this.catalogVariable?.dataFieldUnits]
+        ).filter(Boolean)
+
+        const uniqueUnits = [...new Set(units)]
+
+        if (!uniqueUnits.length) {
             return
         }
 
-        return [this.catalogVariable.dataFieldUnits].filter(Boolean).join(', ')
+        return uniqueUnits.join(', ')
+    }
+
+    #hasNoData(): boolean {
+        const taskStatus = this.#timeSeriesController.task.status
+
+        if (taskStatus !== TaskStatus.COMPLETE) {
+            return false
+        }
+
+        const plotData =
+            this.#timeSeriesController.lastTaskValue ??
+            this.#timeSeriesController.emptyPlotData
+
+        // Check if we have any data points
+        if (plotData.length === 0) {
+            return true
+        }
+
+        // Check if the first data series has empty arrays
+        const firstSeries = plotData[0]
+        const x = 'x' in firstSeries ? firstSeries.x : undefined
+        const y = 'y' in firstSeries ? firstSeries.y : undefined
+
+        if (
+            !x ||
+            !y ||
+            (Array.isArray(x) && x.length === 0) ||
+            (Array.isArray(y) && y.length === 0)
+        ) {
+            return true
+        }
+
+        return false
+    }
+
+    #isVariableNotFound(): boolean {
+        const variableTaskStatus = this._fetchVariableTask.status
+        // Only show "variable not found" if the variable fetch task has completed
+        if (variableTaskStatus !== TaskStatus.COMPLETE) {
+            return false
+        }
+
+        // Check if user has provided variable information
+        const hasVariableRequest = Boolean(
+            this.variableEntryId ||
+                this.variableEntryIds.length ||
+                (this.collection && this.variable),
+        )
+
+        // If user requested a variable but catalogVariable is not set, variable was not found
+        return hasVariableRequest && !this.catalogVariable
+    }
+
+    #getErrorMessage(error: {
+        code: string
+        message?: string
+        context?: string
+    }) {
+        return formatHarmonyErrorMessage(error)
     }
 
     #handlePlotRelayout(e: TerraPlotRelayoutEvent) {
+        // If auto-fetch is disabled, don't update dates or trigger new data fetches
+        if (this.disableAutoFetch) {
+            return
+        }
+
         let changed = false
         if (e.detail.xAxisMin) {
             this.startDate = formatDate(e.detail.xAxisMin)
@@ -347,7 +654,7 @@ export default class TerraTimeSeries extends TerraElement {
                     },
                     bubbles: true,
                     composed: true,
-                })
+                }),
             )
         }
     }

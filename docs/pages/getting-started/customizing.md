@@ -22,10 +22,10 @@ To customize a design token, simply override it in your stylesheet using a `:roo
 :root {
     /* Override NASA blue with a custom color */
     --terra-color-nasa-blue: #0052cc;
-    
+
     /* Customize spacing */
     --terra-spacing-small: 0.75rem;
-    
+
     /* Customize border radius */
     --terra-border-radius-medium: 0.375rem;
 }
@@ -102,7 +102,7 @@ terra-avatar.your-class {
 Alternatively, you can set them inline directly on the element.
 
 ```html
-<sl-avatar style="--size: 6rem;"></sl-avatar>
+<terra-avatar style="--size: 6rem;"></terra-avatar>
 ```
 
 Not all components expose CSS custom properties. For those that do, they can be found in the component's API documentation.

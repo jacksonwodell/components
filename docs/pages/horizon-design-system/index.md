@@ -47,21 +47,33 @@ The theme is automatically applied to `:root`, so all CSS variables are availabl
 
 ### Dark Mode
 
-The `horizon.css` theme file includes both light and dark themes. Dark mode is automatically enabled when the user's system preference is set to dark mode, or you can manually control it with the `terra-theme-dark` class:
+The `horizon.css` theme file includes both light and dark themes. Dark mode can be enabled in two ways:
+
+**Automatic dark mode (requires opt-in):**
+
+To enable automatic dark mode based on system preference, add the `terra-prefers-color-scheme` class to the `<body>` element:
 
 ```html
-<!-- Automatic dark mode (based on system preference) -->
-<html>
+<body class="terra-prefers-color-scheme">
+    <!-- Dark mode activates automatically based on system preference -->
     ...
-</html>
+</body>
+```
 
-<!-- Manual dark mode override -->
+**Manual dark mode override:**
+
+```html
 <html class="terra-theme-dark">
+    <!-- Always use dark mode, regardless of system preference -->
     ...
 </html>
+```
 
-<!-- Force light mode -->
+**Force light mode:**
+
+```html
 <html class="terra-theme-horizon">
+    <!-- Always use light mode, regardless of system preference -->
     ...
 </html>
 ```
@@ -164,8 +176,8 @@ This page tracks the progress of Terra UI Components in adopting the Horizon Des
 
 ### Elements
 
-| Component                                         | Status             | Notes                                                                                                     |
-| ------------------------------------------------- | ------------------ | --------------------------------------------------------------------------------------------------------- |
+| Component                                         | Status            | Notes                                                                                                     |
+| ------------------------------------------------- | ----------------- | --------------------------------------------------------------------------------------------------------- |
 | [Avatar](/components/avatar)                      | ✅ Fully Supported | Implements HDS avatar guidelines with image, initials, and icon support. Full dark mode support.          |
 | Badges                                            | ❌ Not Supported   | Not yet implemented.                                                                                      |
 | [Button](/components/button)                      | ✅ Fully Supported | Core HDS styles implemented. Some variants were modified to fit application UI better.                    |
@@ -188,8 +200,8 @@ This page tracks the progress of Terra UI Components in adopting the Horizon Des
 
 ### Components
 
-| Component                          | Status             | Notes                                                                       |
-| ---------------------------------- | ------------------ | --------------------------------------------------------------------------- |
+| Component                          | Status            | Notes                                                                       |
+| ---------------------------------- | ----------------- | --------------------------------------------------------------------------- |
 | [Accordion](/components/accordion) | ✅ Fully Supported | Implements HDS accordion patterns with design tokens and dark mode support. |
 | Article Building Blocks            | ❌ Not Supported   | Not yet implemented.                                                        |
 | Audio Player                       | ❌ Not Supported   | Not yet implemented.                                                        |
@@ -218,8 +230,8 @@ This page tracks the progress of Terra UI Components in adopting the Horizon Des
 
 ### Modules
 
-| Component                         | Status           | Notes                |
-| --------------------------------- | ---------------- | -------------------- |
+| Component                         | Status          | Notes                |
+| --------------------------------- | --------------- | -------------------- |
 | 3D Model Module                   | ❌ Not Supported | Not yet implemented. |
 | About the Author                  | ❌ Not Supported | Not yet implemented. |
 | Article Hero Image                | ❌ Not Supported | Not yet implemented. |
@@ -290,8 +302,8 @@ This page tracks the progress of Terra UI Components in adopting the Horizon Des
 
 ### Templates
 
-| Component               | Status           | Notes                |
-| ----------------------- | ---------------- | -------------------- |
+| Component               | Status          | Notes                |
+| ----------------------- | --------------- | -------------------- |
 | 404 Page                | ❌ Not Supported | Not yet implemented. |
 | About                   | ❌ Not Supported | Not yet implemented. |
 | About NASA              | ❌ Not Supported | Not yet implemented. |

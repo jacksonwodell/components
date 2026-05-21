@@ -11,9 +11,7 @@ The `<terra-data-subsetter>` component provides a complete UI for subsetting and
 
 ```html:preview
 <div style="height: 200px;">
-    <terra-dialog id="my-dialog" width="80%">
-        <terra-data-subsetter collection-entry-id="OMAERO_003"></terra-data-subsetter>
-    </terra-dialog>
+    <terra-data-subsetter collection-entry-id="OMAERO_003" dialog="my-dialog"></terra-data-subsetter>
     <terra-button for-dialog="my-dialog">
         Open Subsetter
     </terra-button>
@@ -47,7 +45,19 @@ The `<terra-data-subsetter>` component provides a complete UI for subsetting and
 ### Basic Usage
 
 ```html:preview
-<terra-data-subsetter short-name="OMAERO" version="003"></terra-data-subsetter>
+<terra-data-subsetter short-name="M2I3NPASM" version="5.12.4"></terra-data-subsetter>
+```
+
+### Giovanni services for CSV and TIFF outputs
+
+```html:preview
+<terra-data-subsetter short-name="FLDAS_NOAHMP001_G_CA_D" version="001"></terra-data-subsetter>
+```
+
+### Error handling for collections with no granules
+
+```html:preview
+<terra-data-subsetter short-name="XAERDT_L2_MODIS_Aqua" version="1"></terra-data-subsetter>
 ```
 
 ### No collection (enables Collection search)
@@ -60,13 +70,13 @@ The `<terra-data-subsetter>` component provides a complete UI for subsetting and
 
 ```html:preview
 <div style="height: 200px;">
-    <terra-dialog id="my-dialog">
-        <terra-data-subsetter collection-entry-id="OMAERO_003"></terra-data-subsetter>
-    </terra-dialog>
+    <terra-data-subsetter collection-entry-id="OMAERO_003" dialog="my-dialog"></terra-data-subsetter>
     <terra-button for-dialog="my-dialog">
         Open Subsetter
     </terra-button>
 </div>
+
+
 ```
 
 ## Best Practices
@@ -75,6 +85,7 @@ The `<terra-data-subsetter>` component provides a complete UI for subsetting and
 -   Use `bearer-token` for authenticated users.
 -   Place the component inside a dialog for a focused, modal workflow.
 -   Listen for the `terra-subset-job-complete` event to trigger downstream actions (e.g., notifications, analytics).
+-   For variable subsetting, choose one or more variables and then optionally refine by common dimensions. The component now displays a second accordion when selected variables have shared, non-spatial/non-temporal dimensions.
 
 ## Accessibility
 
