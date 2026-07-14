@@ -88,12 +88,6 @@ export default class TerraAlert extends TerraElement {
         'filled'
 
     /**
-     * The alert's appearance style. "filled" uses a colored background with white text (HDS default).
-     * "white" uses a white background with a colored top border and dark text.
-     */
-    @property({ reflect: true }) appearance: 'filled' | 'white' = 'filled'
-
-    /**
      * The length of time, in milliseconds, the alert will show before closing itself. If the user interacts with
      * the alert before it closes (e.g. moves the mouse over it), the timer will restart. Defaults to `Infinity`, meaning
      * the alert will not close on its own.

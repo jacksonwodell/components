@@ -1,17 +1,47 @@
 import type {
     CloudCoverRange,
     CmrGranule,
-    CmrSamplingOfGranules,
-    MetadataCatalogInterface,
-} from '../../metadata-catalog/types.js'
-import { CmrCatalog } from '../../metadata-catalog/cmr-catalog.js'
+    CmrGranuleDataGranule,
+} from '../../apis/cmr.api.js'
+import { calculateMeanGranuleSize, formatGranuleSize } from '../../utilities/granule.js'
 import { Task, type StatusRenderer } from '@lit/task'
 import type { ReactiveControllerHost } from 'lit'
 import type TerraDataAccess from './data-access.component.js'
-import {
-    calculateMeanGranuleSize,
-    formatGranuleSize,
-} from '../../metadata-catalog/utilities.js'
+
+type CmrSamplingGranuleItem = {
+    dataGranule: CmrGranuleDataGranule & { productionDateTime: string }
+}
+
+type CmrSamplingOfGranules = {
+    firstGranules?: { items: CmrSamplingGranuleItem[] }
+    lastGranules?: { items: CmrSamplingGranuleItem[] }
+}
+
+type GranulesResponse = {
+    collections?: {
+        items?: Array<{
+            granules?: { items?: CmrGranule[]; count?: number }
+        }>
+    }
+}
+
+interface MetadataCatalogInterface {
+    getGranules(collectionEntryId: string, options: unknown): Promise<GranulesResponse | undefined>
+    getSamplingOfGranules(collectionEntryId: string, options: unknown): Promise<CmrSamplingOfGranules | undefined>
+    getCloudCoverRange(collectionEntryId: string, options: unknown): Promise<CloudCoverRange | null>
+}
+
+class CmrCatalog implements MetadataCatalogInterface {
+    async getGranules(_collectionEntryId: string, _options: unknown): Promise<GranulesResponse | undefined> {
+        return undefined
+    }
+    async getSamplingOfGranules(_collectionEntryId: string, _options: unknown): Promise<CmrSamplingOfGranules | undefined> {
+        return undefined
+    }
+    async getCloudCoverRange(_collectionEntryId: string, _options: unknown): Promise<CloudCoverRange | null> {
+        return null
+    }
+}
 
 export type FetchGranulesOptions = {
     collectionEntryId: string
@@ -86,9 +116,9 @@ export class DataAccessController {
                     sortDirection,
                     search,
                     cloudCover,
-                    startDate: this.#host.startDate,
-                    endDate: this.#host.endDate,
-                    location: this.#host.location,
+                    startDate: this.#host.searchParams.startDate,
+                    endDate: this.#host.searchParams.endDate,
+                    location: this.#host.searchParams.location,
                 })
 
                 this.#granules =
@@ -120,7 +150,7 @@ export class DataAccessController {
                     }
                 )
 
-                this.#sampling = sampling?.collections?.items?.[0] ?? []
+                this.#sampling = sampling
 
                 return this.#sampling
             },
@@ -175,12 +205,13 @@ export class DataAccessController {
     }
 
     get granuleMaxDate() {
-        if (!this.#sampling?.lastGranules) {
+        const sampling = this.#sampling
+        if (!sampling?.lastGranules) {
             return null
         }
 
-        const granules = this.#sampling.lastGranules.items
-        return granules[granules.length - 1].dataGranule.productionDateTime
+        const granules = sampling.lastGranules.items
+        return granules[granules.length - 1]?.dataGranule.productionDateTime ?? null
     }
 
     get estimatedSize() {
@@ -188,8 +219,8 @@ export class DataAccessController {
             return null
         }
 
-        const firstAndLastGranules = this.#sampling?.firstGranules.items.concat(
-            this.#sampling?.lastGranules.items
+        const firstAndLastGranules = this.#sampling?.firstGranules?.items.concat(
+            this.#sampling?.lastGranules?.items ?? []
         )
 
         return firstAndLastGranules
