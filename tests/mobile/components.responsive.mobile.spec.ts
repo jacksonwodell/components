@@ -51,7 +51,14 @@ const interactiveComponentNames = new Set([
   'variable-keyword-search',
 ]);
 
-const previewSelector = 'div.code-preview__preview-content[data-flavor="html"]';
+// Scoped to the preview + resizer only. Deliberately excludes the sibling
+// `.code-preview__source-group` (raw source markup) and `.code-preview__buttons`
+// (the "Source"/"React"/"CodePen" toggle buttons), so responsiveness checks
+// never measure or tap doc-page chrome instead of the component under test.
+// This selector matches every code-preview block on a page (both the
+// `data-flavor="html"` and `data-flavor="jupyter"` variants), so iterating
+// over all matches covers every documented variant/example, not just the first.
+const previewContainerSelector = '.code-preview__preview';
 const defaultOverflowTolerancePx = 2;
 const defaultBoundsTolerancePx = 8;
 const maybeEnv = (globalThis as { process?: { env?: Record<string, string | undefined> } }).process?.env;
@@ -228,12 +235,11 @@ const componentInteractionRules: Record<string, InteractionRule> = {
   },
 };
 
-const getVisiblePreview = (page: Page) => {
+const getVisiblePreviewContainers = (page: Page) => {
   return page
-    .locator(previewSelector)
+    .locator(previewContainerSelector)
     .filter({ has: page.locator(':scope > *') })
-    .filter({ visible: true })
-    .first();
+    .filter({ visible: true });
 };
 
 const tapCenter = async (page: Page, locator: Locator) => {
@@ -286,7 +292,36 @@ const getFirstFillableLocator = async (root: Locator, selectors: string[]) => {
   });
 };
 
-const verifyDefinedPreviewComponent = async (page: Page, componentName: string) => {
+type PreviewVariant = {
+  locator: Locator;
+  /** Nearest preceding doc heading text (e.g. "Circle Buttons", "Sizes"), or '' for the top-of-page example before any heading. */
+  label: string;
+};
+
+// Reads the section heading (h2-h4) that immediately precedes a code-preview
+// block in the docs markup, so test failures can say "Circle Buttons" instead
+// of an opaque index. Docs are generated as flat siblings under
+// `.content__body` (heading, description paragraph(s), then `.code-preview`),
+// so we walk previous siblings of the `.code-preview` wrapper until a heading
+// is found. Returns '' if there's no preceding heading (the default/basic
+// usage example at the top of the page, before the first "### ..." section).
+const getPreviewVariantLabel = async (container: Locator): Promise<string> => {
+  return container.evaluate((el) => {
+    let sibling = (el.closest('.code-preview') ?? el).previousElementSibling;
+    while (sibling) {
+      if (/^H[1-6]$/.test(sibling.tagName)) {
+        return (sibling.textContent ?? '').trim();
+      }
+      sibling = sibling.previousElementSibling;
+    }
+    return '';
+  });
+};
+
+// Returns one entry per documented example/variant (Basic usage, Sizes,
+// Disabled, etc.) for the component's page, so callers can check every
+// variant instead of only the first code-preview block on the page.
+const getComponentPreviewContainers = async (page: Page, componentName: string): Promise<PreviewVariant[]> => {
   const contentBody = page.locator('article#content .content__body').first();
   await expect(contentBody).toBeVisible();
 
@@ -297,15 +332,33 @@ const verifyDefinedPreviewComponent = async (page: Page, componentName: string) 
     await expect(componentMatches.first()).toBeAttached();
   }
 
-  const preview = getVisiblePreview(page);
-  const previewCount = await preview.count();
-  if (previewCount) {
-    await expect(preview).toBeVisible();
+  const previewContainers = getVisiblePreviewContainers(page);
+  const previewContainerCount = await previewContainers.count();
+  if (previewContainerCount) {
+    const containers: PreviewVariant[] = [];
+    for (let index = 0; index < previewContainerCount; index += 1) {
+      const locator = previewContainers.nth(index);
+      containers.push({ locator, label: await getPreviewVariantLabel(locator) });
+    }
+    return containers;
   }
 
-  return previewCount ? preview : contentBody;
+  // No code-preview block was found at all (unexpected for a documented
+  // component page). Fall back to the article body so downstream assertions
+  // still fail loudly instead of silently skipping the component.
+  return [{ locator: contentBody, label: '' }];
 };
 
+// Measures whether `locator`'s own rendered box needs horizontal scrolling to
+// show all of its content. Intentionally NOT used on individual component
+// hosts: a host's scrollWidth includes its slotted light-DOM content (e.g. an
+// icon sized via `font-size: 2em` inside a fixed-size circular button), which
+// can exceed the host's own clientWidth without the icon ever visually
+// spilling out, being clipped, or affecting layout (the host's width is fixed
+// by CSS regardless of its slotted content's natural size). Called instead on
+// the doc-page's `.code-preview__preview` container, which has no such fixed
+// sizing quirks, so a positive result there reflects the example actually
+// requiring horizontal scrolling on the page.
 const getHorizontalOverflowPx = async (locator: Locator) => {
   return locator.evaluate((element) => {
     const target = element as HTMLElement;
@@ -336,7 +389,12 @@ const getFirstVisibleTarget = async (locators: Locator[]) => {
   return null;
 };
 
-const verifyVisualResponsiveness = async (page: Page, container: Locator, componentName: string) => {
+const verifyVisualResponsiveness = async (
+  page: Page,
+  container: Locator,
+  componentName: string,
+  variantLabel: string = componentName
+) => {
   const baseOverflowAllowance = visualOverflowAllowancePx[componentName] ?? defaultOverflowTolerancePx;
   const overflowAllowance = Math.max(0, Math.floor(baseOverflowAllowance * visualAllowanceMultiplier));
 
@@ -350,43 +408,49 @@ const verifyVisualResponsiveness = async (page: Page, container: Locator, compon
     getFallbackVisualTargetLocator(container),
   ]);
   const targetCount = targetComponent ? 1 : 0;
-  expect(
+  expect.soft(
     targetCount,
-    `Expected a visible visual target (terra host or scoped fallback) in the visual test container for ${componentName}.`
+    `Expected a visible visual target (terra host or scoped fallback) in the visual test container for ${variantLabel}.`
   ).toBeGreaterThan(0);
   if (!targetCount || !targetComponent) {
     return;
   }
 
-  const targetScrollOverflow = await getHorizontalOverflowPx(targetComponent);
-  expect(
-    targetScrollOverflow,
-    `Visible component overflow for ${componentName} exceeded tolerance (${overflowAllowance}px).`
+  // Measure overflow on the preview container, not the target component host:
+  // a host's scrollWidth reflects its slotted content's natural size, which
+  // can exceed a fixed-size host (e.g. an icon in a circular button) without
+  // any real visual overflow, scrolling, or layout impact. The container has
+  // no such fixed sizing, so its scrollWidth accurately reflects whether this
+  // example actually requires horizontal scrolling on the page.
+  const containerScrollOverflow = await getHorizontalOverflowPx(container);
+  expect.soft(
+    containerScrollOverflow,
+    `Visible component overflow for ${variantLabel} exceeded tolerance (${overflowAllowance}px).`
   ).toBeLessThanOrEqual(overflowAllowance);
 
   const box = await targetComponent.boundingBox();
-  expect(box, `No visible bounding box for a component host in ${componentName} visual checks.`).not.toBeNull();
+  expect.soft(box, `No visible bounding box for a component host in ${variantLabel} visual checks.`).not.toBeNull();
   if (!box) {
     return;
   }
 
-  expect(
+  expect.soft(
     box.width,
-    `terra-${componentName} width exceeds viewport by more than ${defaultBoundsTolerancePx}px.`
+    `${variantLabel} width exceeds viewport by more than ${defaultBoundsTolerancePx}px.`
   ).toBeLessThanOrEqual(viewportWidth + defaultBoundsTolerancePx);
-  expect(
+  expect.soft(
     box.x,
-    `terra-${componentName} starts too far left of viewport.`
+    `${variantLabel} starts too far left of viewport.`
   ).toBeGreaterThanOrEqual(-defaultBoundsTolerancePx);
-  expect(
+  expect.soft(
     box.x + box.width,
-    `terra-${componentName} extends too far right of viewport.`
+    `${variantLabel} extends too far right of viewport.`
   ).toBeLessThanOrEqual(viewportWidth + defaultBoundsTolerancePx);
 };
 
 const exerciseComponentBehavior = async (
   page: Page,
-  preview: Locator,
+  previewContainers: Locator[],
   componentName: string
 ) => {
   if (!interactiveComponentNames.has(componentName)) {
@@ -398,11 +462,20 @@ const exerciseComponentBehavior = async (
     return;
   }
 
-  const root = rule.scope === 'page' ? page.locator('body') : preview;
+  // Search every documented variant's preview container (not just the first)
+  // so a variant that only renders its interactive control in a later example
+  // (e.g. a "Disabled" or "With icon" section) is still exercised.
+  const roots = rule.scope === 'page' ? [page.locator('body')] : previewContainers;
 
   if (rule.action === 'fill') {
-    const field = await getFirstFillableLocator(root, rule.selectors);
-    expect(field, `No fillable control found for component ${componentName}`).not.toBeNull();
+    let field: Locator | null = null;
+    for (const root of roots) {
+      field = await getFirstFillableLocator(root, rule.selectors);
+      if (field) {
+        break;
+      }
+    }
+    expect.soft(field, `No fillable control found for component ${componentName}`).not.toBeNull();
     if (!field) {
       return;
     }
@@ -410,12 +483,18 @@ const exerciseComponentBehavior = async (
     const value = rule.fillValue || 'mobile test';
     await field.click();
     await field.fill(value);
-    await expect(field).toHaveValue(value);
+    await expect.soft(field).toHaveValue(value);
     return;
   }
 
-  const tapped = await getFirstTappableLocator(page, root, rule.selectors);
-  expect(tapped, `No tappable control found for component ${componentName}`).not.toBeNull();
+  let tapped = false;
+  for (const root of roots) {
+    tapped = (await getFirstTappableLocator(page, root, rule.selectors)) !== null;
+    if (tapped) {
+      break;
+    }
+  }
+  expect.soft(tapped, `No tappable control found for component ${componentName}`).toBe(true);
 };
 
 test.describe('Terra component mobile responsiveness', () => {
@@ -433,7 +512,7 @@ test.describe('Terra component mobile responsiveness', () => {
       await expect(page.locator('article#content')).toBeVisible();
       await expect(page.locator('h1').first()).toBeVisible();
 
-      const preview = await verifyDefinedPreviewComponent(page, componentName);
+      const previewContainers = await getComponentPreviewContainers(page, componentName);
 
       const pageErrors: string[] = [];
       page.on('pageerror', (error) => {
@@ -448,9 +527,31 @@ test.describe('Terra component mobile responsiveness', () => {
       await page.touchscreen.tap(24, 24);
       await page.touchscreen.tap(100, 220);
 
-      await verifyVisualResponsiveness(page, preview, componentName);
+      // Check every documented variant/example on the page (e.g. "Sizes",
+      // "Disabled", "Outline"), not just the first code-preview block, so
+      // variant-specific overflow/layout regressions are actually caught.
+      // Failure messages use the doc section heading (e.g. "Circle Buttons")
+      // so it's obvious which documented example is failing.
+      // verifyVisualResponsiveness uses expect.soft(...) internally, so a
+      // failure on one variant is recorded but does NOT throw/abort the
+      // loop — every remaining variant (and exerciseComponentBehavior below)
+      // still runs, and the test fails at the end with all collected
+      // failures listed together instead of stopping at the first one.
+      for (let index = 0; index < previewContainers.length; index += 1) {
+        const { locator, label } = previewContainers[index];
+        const variantLabel = label
+          ? `terra-${componentName} \u2014 ${label}`
+          : previewContainers.length > 1
+            ? `terra-${componentName} (variant ${index + 1}/${previewContainers.length})`
+            : `terra-${componentName}`;
+        await verifyVisualResponsiveness(page, locator, componentName, variantLabel);
+      }
 
-      await exerciseComponentBehavior(page, preview, componentName);
+      await exerciseComponentBehavior(
+        page,
+        previewContainers.map((variant) => variant.locator),
+        componentName
+      );
 
       const isKnownLoginComponent = componentName === 'login' || componentName === 'earthdata-login';
       const unexpectedErrors = pageErrors.filter(
