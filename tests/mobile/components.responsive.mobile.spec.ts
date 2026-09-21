@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import type { Locator, Page } from '@playwright/test';
+import type { Locator, Page, Route } from '@playwright/test';
 
 type InteractionRule = {
   selectors: string[];
@@ -69,8 +69,178 @@ const visualAllowanceMultiplier = Number.isFinite(parsedVisualAllowanceMultiplie
 
 const componentNames = [...interactiveComponentNames].sort((a, b) => a.localeCompare(b));
 
+const harmonyMockedComponentNames = new Set(['time-average-map', 'time-series']);
+
 const visualOverflowAllowancePx: Partial<Record<string, number>> = {
   // Keep this list intentionally minimal. Add an override only for clearly intentional horizontal scrolling.
+};
+
+const mockHarmonyJobId = 'mock-harmony-job-id';
+const mockHarmonyRequestUrl =
+  'https://harmony.earthdata.nasa.gov/C1234567890-TEST/ogc-api-coverages/1.0.0/collections/V1234567890-TEST/coverage/rangeset?subset=lat(-10,10)&subset=lon(-10,10)&format=text/csv';
+const mockTimeSeriesCsv = [
+  'title,Mock Harmony Data',
+  'units,kg m-2',
+  'undef,-9999',
+  'Timestamp (UTC),Value',
+  '2024-01-01T00:00:00.000Z,1.25',
+  '2024-01-02T00:00:00.000Z,1.50',
+].join('\n');
+
+const mockHarmonyJobStatus = {
+  jobID: mockHarmonyJobId,
+  status: 'successful',
+  message: 'Mock Harmony job completed successfully.',
+  progress: 100,
+  createdAt: '2024-01-01T00:00:00.000Z',
+  updatedAt: '2024-01-01T00:00:01.000Z',
+  dataExpiration: '2025-01-01T00:00:00.000Z',
+  request: mockHarmonyRequestUrl,
+  numInputGranules: 1,
+  links: [
+    {
+      title: 'mock-timeseries.csv',
+      href: 'https://example.test/mock-timeseries.csv',
+      rel: 'data',
+      type: 'text/csv',
+    },
+  ],
+};
+
+const installHarmonyMocks = async (page: Page) => {
+  const capabilitiesResponse = {
+    conceptId: 'C1234567890-TEST',
+    shortName: 'MOCK_COLLECTION',
+    summary: {
+      subsetting: {
+        bbox: true,
+        dimension: true,
+        shape: true,
+        temporal: true,
+        variable: true,
+      },
+      reprojection: {
+        supported: false,
+        supportedProjections: [],
+        interpolationMethods: [],
+      },
+      averaging: {
+        time: true,
+        area: true,
+      },
+      concatenation: false,
+      outputFormats: ['text/csv', 'image/tiff'],
+    },
+    services: [
+      {
+        name: 'Giovanni Time Series',
+        href: 'https://example.test/services/time-series',
+        capabilities: {
+          subsetting: {
+            temporal: true,
+            variable: true,
+            bbox: true,
+            shape: true,
+          },
+          outputFormats: ['text/csv'],
+          averaging: {
+            time: false,
+            area: false,
+          },
+        },
+      },
+      {
+        name: 'Giovanni Averaging',
+        href: 'https://example.test/services/averaging',
+        capabilities: {
+          subsetting: {
+            temporal: true,
+            variable: true,
+            bbox: true,
+            shape: true,
+          },
+          outputFormats: ['image/tiff', 'text/csv'],
+          averaging: {
+            time: true,
+            area: true,
+          },
+        },
+      },
+    ],
+    variables: [
+      {
+        conceptId: 'V1234567890-TEST',
+        name: 'mock_variable',
+        href: 'https://cmr.earthdata.nasa.gov/search/concepts/V1234567890-TEST',
+      },
+    ],
+    capabilitiesVersion: '3',
+    configuredOutputFormats: [
+      {
+        key: 'text/csv',
+        label: 'CSV (point-based time series; one file)',
+        description: 'Single variable plotted over time',
+        isGiovanniFormat: true,
+      },
+      {
+        key: 'image/tiff',
+        label: 'GeoTIFF (time-averaged map; one file)',
+        description: 'Time averaged representation as map',
+        isGiovanniFormat: true,
+      },
+    ],
+  };
+
+  const getRequestUrl = (route: Route) => {
+    return new URL(route.request().url());
+  };
+
+  const fulfillCapabilities = async (route: Route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify(capabilitiesResponse),
+    });
+  };
+
+  const fulfillJobStatus = async (route: Route) => {
+    const requestUrl = getRequestUrl(route);
+    const pathname = requestUrl.pathname;
+
+    if (pathname.endsWith('/jobs')) {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          count: 1,
+          jobs: [mockHarmonyJobStatus],
+          links: [],
+        }),
+      });
+      return;
+    }
+
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify(mockHarmonyJobStatus),
+    });
+  };
+
+  const fulfillLinkProxy = async (route: Route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'text/csv; charset=utf-8',
+      body: mockTimeSeriesCsv,
+    });
+  };
+
+  await page.route(/https:\/\/(?:harmony\.earthdata\.nasa\.gov|harmony\.uat\.earthdata\.nasa\.gov)\/capabilities(?:\?.*)?$/, fulfillCapabilities);
+  await page.route(/https:\/\/(?:sjldutoe6c\.execute-api\.us-east-1\.amazonaws\.com\/default\/harmony-proxy\/capabilities)(?:\?.*)?$/, fulfillCapabilities);
+  await page.route(/https:\/\/(?:harmony\.earthdata\.nasa\.gov|harmony\.uat\.earthdata\.nasa\.gov)\/jobs(?:\?.*)?$/, fulfillJobStatus);
+  await page.route(/https:\/\/(?:harmony\.earthdata\.nasa\.gov|harmony\.uat\.earthdata\.nasa\.gov)\/jobs\/[^/?#]+(?:\/cancel)?(?:\?.*)?$/, fulfillJobStatus);
+  await page.route(/https:\/\/sjldutoe6c\.execute-api\.us-east-1\.amazonaws\.com\/default\/harmony-proxy\/(?:jobs(?:\?.*)?|jobs\/[^/?#]+(?:\/cancel)?(?:\?.*)?|ogc-api-coverages\/.*|.*coverage\/rangeset.*)$/, fulfillJobStatus);
+  await page.route(/https:\/\/lpo4uv7f0h\.execute-api\.us-east-1\.amazonaws\.com\/default\/harmony-link-proxy(?:\?.*)?$/, fulfillLinkProxy);
 };
 
 const componentInteractionRules: Record<string, InteractionRule> = {
@@ -503,6 +673,10 @@ test.describe('Terra component mobile responsiveness', () => {
   for (const componentName of componentNames) {
     test(`component ${componentName} is responsive on touch mobile`, async ({ page, isMobile }) => {
       test.skip(!isMobile, 'This suite is intended to run on a mobile device profile.');
+
+      if (harmonyMockedComponentNames.has(componentName)) {
+        await installHarmonyMocks(page);
+      }
 
       await page.goto(`/components/${componentName}/`, {
         waitUntil: 'domcontentloaded',
