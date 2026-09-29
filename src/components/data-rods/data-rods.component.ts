@@ -1,7 +1,9 @@
 import { property, state } from 'lit/decorators.js'
 import { html } from 'lit'
 import componentStyles from '../../styles/component.styles.js'
-import TerraElement from '../../internal/terra-element.js'
+import TerraElement, {
+    undefinedStringConverter,
+} from '../../internal/terra-element.js'
 import styles from './data-rods.styles.js'
 import type { CSSResultGroup } from 'lit'
 import TerraVariableCombobox from '../variable-combobox/variable-combobox.component.js'
@@ -88,7 +90,11 @@ export default class TerraDataRods extends TerraElement {
      * The component provides the header "Authorization: Bearer" (the request header and authentication scheme).
      * The property's value will be inserted after "Bearer" (the authentication scheme).
      */
-    @property({ attribute: 'bearer-token', reflect: false })
+    @property({
+        attribute: 'bearer-token',
+        reflect: false,
+        converter: undefinedStringConverter,
+    })
     bearerToken: string
 
     @state() catalogVariable: Variable
@@ -99,6 +105,14 @@ export default class TerraDataRods extends TerraElement {
     @state() private dateErrorMessage?: string
 
     @state() private lastChanged?: LastChanged
+
+    @state() private isDateSliderDisabled = false
+
+    @state()
+    private chunkProgress?: {
+        currentChunk: number
+        totalChunks: number
+    }
 
     /**
      * add a warning state
@@ -213,6 +227,8 @@ export default class TerraDataRods extends TerraElement {
                 bearer-token=${this.bearerToken}
                 show-citation=${true}
                 cache
+                @terra-time-series-chunk-progress-change=${this.#handleChunkProgressChange}
+                @terra-time-series-loading-change=${this.#handleTimeSeriesLoadingChange}
                 @terra-date-range-change=${this.#handleTimeSeriesDateRangeChange}
             >
                 <li slot="help-links">
@@ -229,9 +245,21 @@ export default class TerraDataRods extends TerraElement {
                 max-date=${maxDate}
                 start-date=${this.startDate}
                 end-date=${this.endDate}
+                .disabled=${this.isDateSliderDisabled}
                 @terra-date-range-change="${this.#handleDateRangeSliderChangeEvent}"
                 @terra-date-selection-invalid="${this.#handleInvalidDateSelection}"
             ></terra-date-range-slider>
+            ${
+                this.isDateSliderDisabled && this.chunkProgress
+                    ? html`<div
+                          class="chunk-progress"
+                          style="margin-top: 8px; color: #555; font-size: 0.95em;"
+                          >Loading chunk ${
+                              this.chunkProgress.currentChunk
+                          } of ${this.chunkProgress.totalChunks}&hellip;</div
+                      >`
+                    : null
+            }
             ${
                 this.dateErrorMessage
                     ? html`<div class="date-error" style="color: red;">
@@ -246,8 +274,29 @@ export default class TerraDataRods extends TerraElement {
      * anytime the date range slider changes, update the start and end date
      */
     #handleDateRangeSliderChangeEvent(event: TerraDateRangeChangeEvent) {
+        // Lock slider immediately to avoid overlapping range requests.
+        this.isDateSliderDisabled = true
         this.startDate = event.detail.startDate
         this.endDate = event.detail.endDate
+    }
+
+    #handleTimeSeriesLoadingChange(event: CustomEvent<{ loading: boolean }>) {
+        this.isDateSliderDisabled = event.detail.loading
+
+        if (!event.detail.loading) {
+            this.chunkProgress = undefined
+        }
+    }
+
+    #handleChunkProgressChange(
+        event: CustomEvent<{ currentChunk: number; totalChunks: number }>,
+    ) {
+        const { currentChunk, totalChunks } = event.detail
+
+        this.chunkProgress =
+            currentChunk > 0 && totalChunks > 1
+                ? { currentChunk, totalChunks }
+                : undefined
     }
 
     /**
@@ -265,7 +314,7 @@ export default class TerraDataRods extends TerraElement {
         }
 
         this.variableEntryId = newEntryId
-        this.location = undefined
+        /* this.location = undefined - not sure why this is here; shouldn't zero location because of variable change*/
         this.lastChanged = 'variable'
 
         this.compatibilityWarning()

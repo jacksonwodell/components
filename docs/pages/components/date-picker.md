@@ -3,7 +3,6 @@ meta:
     title: Date Picker
     description: A versatile date picker component that supports both single date selection and date range selection.
 layout: component
-sidebarSection: Elements
 ---
 
 ```html:preview
@@ -160,7 +159,6 @@ When `twelve-hour` is set, the time picker displays hours in 12-hour format (1â€
 ### Timezone with 12-Hour Format
 
 ```html:preview
-<!-- Default presets provided when show-presets is enabled -->
 <terra-date-picker
   id="tz-12h-picker"
   enable-time
@@ -220,8 +218,11 @@ Note: Presets are shown if any part of the preset range overlaps the `min-date`/
 <terra-date-picker
   id="preset-picker-with-time"
   range
+  split-inputs
   show-presets
   enable-time
+  timezone="America/New_York"
+  twelve-hour
 ></terra-date-picker>
 ```
 
